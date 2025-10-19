@@ -1,0 +1,34 @@
+CONFIG_IDF_TARGET="esp32c3"
+
+# Flash size configuration
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# WiFi Configuration
+# Note: Configure your actual WiFi credentials in sdkconfig (not committed to git)
+# or use idf.py menuconfig
+
+# WiFi authentication mode (integer value from wifi_auth_mode_t enum in esp_wifi_types_generic.h)
+# 3 = WIFI_AUTH_WPA2_PSK (default for production with password protection)
+CONFIG_TIMEMACHINE_WIFI_AUTHMODE=3
+
+# Time Machine NTP Configuration
+CONFIG_TIMEMACHINE_NTP_SERVER1="pool.ntp.org"
+CONFIG_TIMEMACHINE_NTP_SERVER2="time.nist.gov"
+CONFIG_TIMEMACHINE_TIMEZONE="UTC0"
+
+# Display Configuration - Runtime Configurable (Future)
+# These settings will be configurable at runtime in the future
+
+# Time format (integer value from time_format_t enum in time_display.h)
+# We use the integer value instead of the enum name because Kconfig doesn't support C enums directly.
+# 0 = TIME_FORMAT_12H (12-hour format with AM/PM)
+# 1 = TIME_FORMAT_24H (24-hour format)
+CONFIG_TIMEMACHINE_TIME_FORMAT=1
+
+CONFIG_TIMEMACHINE_SHOW_SECONDS=y
+
+# LWIP Configuration for NTP
+CONFIG_LWIP_SNTP_UPDATE_DELAY=3600000
+
+# Enable SNTP
+CONFIG_LWIP_DHCP_GET_NTP_SRV=y
