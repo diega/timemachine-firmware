@@ -1,0 +1,18 @@
+def test_hello_world(dut):
+    # Test full WiFi + NTP functionality in Wokwi simulator
+    dut.expect('ESP-IDF', timeout=10)
+    dut.expect('Loaded app from partition', timeout=5)
+    dut.expect('Time Machine starting...', timeout=5)
+    dut.expect('NVS initialized', timeout=5)
+    dut.expect('Initializing network...', timeout=5)
+    dut.expect('Initializing WiFi...', timeout=5)
+    dut.expect('WiFi initialization finished, waiting for connection...', timeout=5)
+    dut.expect('Connected to WiFi', timeout=30)
+    dut.expect('Got IP:', timeout=5)
+    dut.expect('Waiting for initial NTP sync...', timeout=5)
+    dut.expect('Time synchronized successfully!', timeout=60)
+    dut.expect('Using driver: console', timeout=5)
+    dut.expect('Display initialized with console driver', timeout=5)
+    dut.expect('Time Machine ready!', timeout=5)
+    # Verify time display output (date format: Day Mon DD, YYYY - HH:MM:SS)
+    dut.expect(r'\w{3} \w{3} \d{2}, \d{4} - \d{2}:\d{2}:\d{2}', timeout=5)

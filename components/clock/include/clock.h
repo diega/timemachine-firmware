@@ -1,0 +1,59 @@
+#pragma once
+
+#include <stdbool.h>
+#include "esp_err.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/**
+ * @brief Time format options
+ */
+typedef enum {
+    TIME_FORMAT_12H,  /**< 12-hour format with AM/PM */
+    TIME_FORMAT_24H   /**< 24-hour format */
+} time_format_t;
+
+/**
+ * @brief Clock configuration
+ */
+typedef struct {
+    time_format_t format;   /**< Time format (12h or 24h) */
+    bool show_seconds;      /**< Show seconds in display */
+} clock_config_t;
+
+/**
+ * @brief Initialize clock component
+ *
+ * Registers event handlers to listen for TIME_TICK events and
+ * emit DISPLAY_EVENT_RENDER_TEXT events with formatted time.
+ *
+ * @param config Clock configuration
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t clock_init(const clock_config_t *config);
+
+/**
+ * @brief Set time format
+ *
+ * @param format New time format
+ * @return ESP_OK on success, error code otherwise
+ */
+esp_err_t clock_set_format(time_format_t format);
+
+/**
+ * @brief Get current time format
+ *
+ * @return Current time format
+ */
+time_format_t clock_get_format(void);
+
+/**
+ * @brief Deinitialize clock component
+ */
+void clock_deinit(void);
+
+#ifdef __cplusplus
+}
+#endif
