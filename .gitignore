@@ -1,0 +1,15 @@
+build/
+.cache/
+__pycache__/
+*.log
+sdkconfig
+sdkconfig.old
+sdkconfig.local
+.aider*
+.idea/
+.vscode/
+.pytest_cache/
+cmake-build-*/
+*.pyc
+.claude/settings.local.json
+managed_components/

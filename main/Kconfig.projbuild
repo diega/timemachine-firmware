@@ -1,0 +1,82 @@
+menu "Time Machine Configuration"
+
+    config TIMEMACHINE_USE_WOKWI_WIFI
+        bool "Use Wokwi-GUEST WiFi (for Wokwi simulator)"
+        default n
+        help
+            Use Wokwi's simulated WiFi network "Wokwi-GUEST" instead of configured SSID/password.
+            Enable this for testing in Wokwi simulator.
+
+    config TIMEMACHINE_SKIP_NETWORK
+        bool "Skip network initialization (for QEMU testing)"
+        default n
+        help
+            Skip WiFi/network initialization. Useful for testing basic boot in QEMU.
+
+    config TIMEMACHINE_WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
+        depends on !TIMEMACHINE_USE_WOKWI_WIFI
+        help
+            SSID (network name) to connect to.
+
+    config TIMEMACHINE_WIFI_PASSWORD
+        string "WiFi Password"
+        default "mypassword"
+        depends on !TIMEMACHINE_USE_WOKWI_WIFI
+        help
+            WiFi password (WPA or WPA2).
+
+    config TIMEMACHINE_WIFI_AUTHMODE
+        int "WiFi Authentication Mode"
+        default 3
+        help
+            WiFi authentication mode (integer value from wifi_auth_mode_t enum).
+            0 = WIFI_AUTH_OPEN (no password)
+            3 = WIFI_AUTH_WPA2_PSK (WPA2 with password)
+
+    config TIMEMACHINE_NTP_SERVER1
+        string "Primary NTP Server"
+        default "pool.ntp.org"
+        help
+            Primary NTP server hostname.
+
+    config TIMEMACHINE_NTP_SERVER2
+        string "Secondary NTP Server"
+        default "time.nist.gov"
+        help
+            Secondary NTP server hostname (fallback).
+
+    config TIMEMACHINE_TIMEZONE
+        string "Timezone"
+        default "UTC0"
+        help
+            Timezone string in POSIX format.
+            Examples:
+            - UTC: "UTC0"
+            - EST: "EST5EDT,M3.2.0/2,M11.1.0"
+            - PST: "PST8PDT,M3.2.0,M11.1.0"
+            - CET: "CET-1CEST,M3.5.0,M10.5.0/3"
+
+    config TIMEMACHINE_TIME_FORMAT
+        int "Time Format"
+        default 1
+        help
+            Time format (integer value from time_format_t enum).
+            0 = TIME_FORMAT_12H (12-hour format with AM/PM)
+            1 = TIME_FORMAT_24H (24-hour format)
+
+    config TIMEMACHINE_SHOW_SECONDS
+        bool "Show seconds"
+        default y
+        help
+            Display seconds in time output.
+
+    config TIMEMACHINE_DISPLAY_EMULATOR
+        bool "Use LED Matrix Emulator (for development without hardware)"
+        default n
+        help
+            Use mock MAX7219 implementation that outputs visual LED matrix to console.
+            Useful for development without hardware.
+
+endmenu

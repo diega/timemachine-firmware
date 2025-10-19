@@ -1,0 +1,14 @@
+# Wokwi simulator specific WiFi configuration
+CONFIG_TIMEMACHINE_WIFI_SSID="Wokwi-GUEST"
+CONFIG_TIMEMACHINE_WIFI_PASSWORD=""
+
+# WiFi authentication mode (integer value from wifi_auth_mode_t enum in esp_wifi_types_generic.h)
+# We use the integer value instead of the enum name because Kconfig doesn't support C enums directly.
+# Common values:
+#   0 = WIFI_AUTH_OPEN (no password required - used by Wokwi-GUEST)
+#   3 = WIFI_AUTH_WPA2_PSK (WPA2 with pre-shared key)
+CONFIG_TIMEMACHINE_WIFI_AUTHMODE=0
+
+# Display configuration for Wokwi simulator
+# Enable the mock/emulator that prints to console instead of driving real hardware
+CONFIG_TIMEMACHINE_DISPLAY_EMULATOR=y
