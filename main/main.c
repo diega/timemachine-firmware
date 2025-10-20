@@ -17,6 +17,7 @@
 #include "touch_sensor.h"
 #include "clock.h"
 #include "tick_task.h"
+#include "wifi_animation.h"
 
 static const char *TAG = "timemachine";
 
@@ -89,6 +90,15 @@ void app_main(void)
     };
     ESP_ERROR_CHECK(touch_sensor_init(&touch_config));
 
+    // Initialize WiFi animation (must be before network init)
+    ESP_ERROR_CHECK(wifi_animation_init());
+
+    // Initialize tick task (needed for WiFi animation and panel timeout)
+    tick_task_config_t tick_config = {
+        .interval_ms = 1000
+    };
+    ESP_ERROR_CHECK(tick_task_start(&tick_config));
+
     // Initialize network (async, emits events when ready)
     network_config_t network_config = {
         .wifi_ssid = CONFIG_TIMEMACHINE_WIFI_SSID,
@@ -148,12 +158,6 @@ static void on_ntp_synced(void* arg, esp_event_base_t event_base,
         .name = "clock"
     };
     ESP_ERROR_CHECK(panel_manager_register_panel(&clock_panel));
-
-    // Start tick task
-    tick_task_config_t tick_config = {
-        .interval_ms = 1000
-    };
-    ESP_ERROR_CHECK(tick_task_start(&tick_config));
 
     ESP_LOGI(TAG, "Time Machine ready!");
 }
