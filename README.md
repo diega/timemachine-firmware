@@ -1,5 +1,5 @@
 ## About
-Time Machine is an esp-idf implementation for a WiFi-connected clock based on ESP32-C3.
+Time Machine is an esp-idf implementation for a WiFi-connected LED matrix clock based on ESP32-C3 and MAX7219.
 This is heavily inspired by [mfactory-osaka/ESPTimeCast](https://github.com/mfactory-osaka/ESPTimeCast) but without using the Arduino SDK.
 
 ## Architecture
@@ -25,7 +25,13 @@ The display system uses a scene-based approach where components build `display_s
 
 Display drivers receive RENDER_SCENE events and render according to their capabilities.
 
-**Current driver**: Console driver outputs text to serial terminal.
+**Available drivers**:
+- **Console**: Text output to serial terminal (for debugging)
+- **LED Matrix Emulator**: Visual console output showing LED matrix state
+- **MAX7219 Hardware**: 4 cascaded MAX7219 LED matrix modules (32x8 pixels)
+  - Hardware pins: CLK=GPIO6, MOSI=GPIO7, CS=GPIO10
+  - Uses mFactory bitmap font for rendering text
+  - Supports scene-based rendering with text centering
 
 ## Features
 - Event-driven architecture using ESP-IDF event system
@@ -36,6 +42,8 @@ Display drivers receive RENDER_SCENE events and render according to their capabi
 - NTP time synchronization with configurable servers
 - Timezone support
 - 12h/24h time format with optional seconds
+- MAX7219 LED matrix display (4 cascaded modules, 32x8 pixels)
+- LED matrix emulator for testing without hardware
 - Console output for debugging
 - Modular display driver architecture
 
@@ -97,6 +105,7 @@ idf.py menuconfig
 # - Touch sensor GPIO pin (default: GPIO 5)
 # - Touch debounce time (default: 200ms)
 # - Panel inactivity timeout (default: 15 seconds)
+# - Display driver (Console / LED Matrix Emulator / MAX7219 Hardware)
 # - Time format (12h/24h) and whether to show seconds
 ```
 
@@ -166,7 +175,7 @@ idf.py build flash monitor
 # The firmware will:
 # 1. Connect to your WiFi network
 # 2. Sync time via NTP
-# 3. Display formatted time every second on serial console
+# 3. Display formatted time on LED matrix (or console if that driver is selected)
 ```
 
 ### QEMU Testing (Not Supported)
@@ -199,7 +208,11 @@ timemachine-firmware/
 │   │   ├── include/display.h
 │   │   ├── display.c
 │   │   └── drivers/
-│   │       └── console/    # Console driver (serial output)
+│   │       ├── console/    # Console driver (serial output)
+│   │       └── max7219/    # MAX7219 LED matrix driver
+│   │           ├── display_max7219.c
+│   │           ├── mfactory_font.c  # Bitmap font
+│   │           └── mock/   # Emulator (visual console output)
 │   ├── events/             # Event definitions and registration
 │   │   ├── include/timemachine_events.h
 │   │   ├── include/display_scene.h

@@ -96,4 +96,21 @@ menu "Time Machine Configuration"
             Seconds of inactivity before returning to default panel (clock).
             Default is 15 seconds.
 
+    choice TIMEMACHINE_DISPLAY_DRIVER
+        prompt "Display Driver"
+        default TIMEMACHINE_DISPLAY_CONSOLE
+        help
+            Select the display driver to use.
+
+        config TIMEMACHINE_DISPLAY_CONSOLE
+            bool "Console (Serial output)"
+
+        config TIMEMACHINE_DISPLAY_EMULATOR
+            bool "LED Matrix Emulator (Visual console output)"
+
+        config TIMEMACHINE_DISPLAY_MAX7219
+            bool "MAX7219 LED Matrix (Hardware)"
+
+    endchoice
+
 endmenu
