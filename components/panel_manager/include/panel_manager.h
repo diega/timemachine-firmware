@@ -12,6 +12,7 @@ extern "C" {
  */
 typedef struct {
     panel_id_t default_panel;      /**< Default panel to show (typically PANEL_CLOCK) */
+    uint16_t inactivity_timeout_s; /**< Seconds of inactivity before returning to default panel */
 } panel_manager_config_t;
 
 /**

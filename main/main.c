@@ -14,6 +14,7 @@
 #include "ntp_sync.h"
 #include "display.h"
 #include "panel_manager.h"
+#include "touch_sensor.h"
 #include "clock.h"
 #include "tick_task.h"
 
@@ -75,9 +76,18 @@ void app_main(void)
 
     // Initialize panel manager
     panel_manager_config_t panel_config = {
-        .default_panel = PANEL_CLOCK
+        .default_panel = PANEL_CLOCK,
+        .inactivity_timeout_s = CONFIG_TIMEMACHINE_PANEL_TIMEOUT_S
     };
     ESP_ERROR_CHECK(panel_manager_init(&panel_config));
+
+    // Initialize touch sensor
+    touch_sensor_config_t touch_config = {
+        .gpio = CONFIG_TIMEMACHINE_TOUCH_GPIO,
+        .active_high = true,
+        .debounce_ms = CONFIG_TIMEMACHINE_TOUCH_DEBOUNCE_MS
+    };
+    ESP_ERROR_CHECK(touch_sensor_init(&touch_config));
 
     // Initialize network (async, emits events when ready)
     network_config_t network_config = {

@@ -11,7 +11,8 @@ The firmware uses an event-driven architecture with clear separation of concerns
 - **events**: Central event system defining TIMEMACHINE_EVENT and DISPLAY_EVENT event bases
 - **network**: WiFi connectivity with automatic reconnection, emits NETWORK_CONNECTED/NETWORK_FAILED events
 - **ntp_sync**: NTP time synchronization, emits NTP_SYNCED event when time is set
-- **panel_manager**: Coordinates which panel is currently active, emits PANEL_ACTIVATED/DEACTIVATED events
+- **panel_manager**: Coordinates panel navigation and inactivity timeout, listens to INPUT_TOUCH and TIME_TICK
+- **touch_sensor**: TTP223 capacitive touch sensor driver, emits INPUT_TOUCH events
 - **clock**: Time formatting and display logic, listens to TIME_TICK and panel events, emits RENDER_SCENE events
 - **display**: Display abstraction layer with pluggable drivers, listens to RENDER_SCENE events
 - **tick_task**: Generates periodic TIME_TICK events
@@ -28,7 +29,9 @@ Display drivers receive RENDER_SCENE events and render according to their capabi
 
 ## Features
 - Event-driven architecture using ESP-IDF event system
-- Panel-based display system (extensible for future panels like weather, date, etc.)
+- Panel-based display system with touch navigation (extensible for future panels like weather, date, etc.)
+- TTP223 capacitive touch sensor for panel switching
+- Automatic return to default panel after inactivity timeout (configurable)
 - WiFi connectivity with configurable credentials
 - NTP time synchronization with configurable servers
 - Timezone support
@@ -88,7 +91,13 @@ cd $IDF_PATH
 ### Configure the project
 ```bash
 idf.py menuconfig
-# Configure WiFi credentials and NTP settings under "Time Machine Configuration"
+# Configure under "Time Machine Configuration":
+# - WiFi credentials (SSID/Password)
+# - NTP servers and timezone
+# - Touch sensor GPIO pin (default: GPIO 5)
+# - Touch debounce time (default: 200ms)
+# - Panel inactivity timeout (default: 15 seconds)
+# - Time format (12h/24h) and whether to show seconds
 ```
 
 ### Build for ESP32-C3
@@ -204,9 +213,12 @@ timemachine-firmware/
 │   ├── panel_manager/      # Panel navigation coordinator
 │   │   ├── include/panel_manager.h
 │   │   └── panel_manager.c
-│   └── tick_task/          # Periodic tick event generator
-│       ├── include/tick_task.h
-│       └── tick_task.c
+│   ├── tick_task/          # Periodic tick event generator
+│   │   ├── include/tick_task.h
+│   │   └── tick_task.c
+│   └── touch_sensor/       # TTP223 touch sensor driver
+│       ├── include/touch_sensor.h
+│       └── touch_sensor.c
 ├── main/
 │   ├── main.c              # Application entry point
 │   ├── CMakeLists.txt

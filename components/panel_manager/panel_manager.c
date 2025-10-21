@@ -14,10 +14,19 @@ static struct {
     panel_info_t panels[MAX_PANELS];
     uint8_t panel_count;
     uint8_t active_panel_idx;
+    uint16_t inactivity_counter;
+    esp_event_handler_instance_t time_tick_handler;
+    esp_event_handler_instance_t input_touch_handler;
 } s_state = {0};
 
 // Forward declarations
 static esp_err_t activate_panel(panel_id_t panel_id);
+static esp_err_t deactivate_panel(panel_id_t panel_id);
+static esp_err_t next_panel(void);
+static void time_tick_handler(void* arg, esp_event_base_t base,
+                              int32_t event_id, void* event_data);
+static void input_touch_handler(void* arg, esp_event_base_t base,
+                                int32_t event_id, void* event_data);
 
 // ============================================================================
 // Public API
@@ -39,9 +48,38 @@ esp_err_t panel_manager_init(const panel_manager_config_t *config)
     s_state.config = *config;
     s_state.panel_count = 0;
     s_state.active_panel_idx = 0;
+    s_state.inactivity_counter = 0;
+
+    // Register TIME_TICK handler for inactivity timeout
+    esp_err_t err = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        TIME_TICK,
+        time_tick_handler,
+        NULL,
+        &s_state.time_tick_handler
+    );
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register TIME_TICK handler");
+        return err;
+    }
+
+    // Register INPUT_TOUCH handler for panel navigation
+    err = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        INPUT_TOUCH,
+        input_touch_handler,
+        NULL,
+        &s_state.input_touch_handler
+    );
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register INPUT_TOUCH handler");
+        panel_manager_deinit();
+        return err;
+    }
 
     s_state.initialized = true;
-    ESP_LOGI(TAG, "Panel manager initialized (default panel: %d)", config->default_panel);
+    ESP_LOGI(TAG, "Panel manager initialized (default: %d, timeout: %ds)",
+             config->default_panel, config->inactivity_timeout_s);
 
     return ESP_OK;
 }
@@ -50,6 +88,25 @@ void panel_manager_deinit(void)
 {
     if (!s_state.initialized) {
         return;
+    }
+
+    // Unregister event handlers
+    if (s_state.input_touch_handler != NULL) {
+        esp_event_handler_instance_unregister(
+            TIMEMACHINE_EVENT,
+            INPUT_TOUCH,
+            s_state.input_touch_handler
+        );
+        s_state.input_touch_handler = NULL;
+    }
+
+    if (s_state.time_tick_handler != NULL) {
+        esp_event_handler_instance_unregister(
+            TIMEMACHINE_EVENT,
+            TIME_TICK,
+            s_state.time_tick_handler
+        );
+        s_state.time_tick_handler = NULL;
     }
 
     s_state.initialized = false;
@@ -117,6 +174,8 @@ static esp_err_t activate_panel(panel_id_t panel_id)
 {
     ESP_LOGI(TAG, "Activating panel %d", panel_id);
 
+    s_state.inactivity_counter = 0;
+
     // Emit PANEL_ACTIVATED event
     esp_err_t err = esp_event_post(
         TIMEMACHINE_EVENT,
@@ -132,4 +191,87 @@ static esp_err_t activate_panel(panel_id_t panel_id)
     }
 
     return ESP_OK;
+}
+
+static esp_err_t deactivate_panel(panel_id_t panel_id)
+{
+    ESP_LOGI(TAG, "Deactivating panel %d", panel_id);
+
+    // Emit PANEL_DEACTIVATED event
+    esp_err_t err = esp_event_post(
+        TIMEMACHINE_EVENT,
+        PANEL_DEACTIVATED,
+        &panel_id,
+        sizeof(panel_id_t),
+        portMAX_DELAY
+    );
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to post PANEL_DEACTIVATED event");
+        return err;
+    }
+
+    return ESP_OK;
+}
+
+static esp_err_t next_panel(void)
+{
+    if (s_state.panel_count == 0) {
+        ESP_LOGW(TAG, "No panels registered");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    panel_id_t current_panel_id = s_state.panels[s_state.active_panel_idx].id;
+
+    // Deactivate current panel
+    deactivate_panel(current_panel_id);
+
+    // Calculate next panel index (circular)
+    s_state.active_panel_idx = (s_state.active_panel_idx + 1) % s_state.panel_count;
+    panel_id_t next_panel_id = s_state.panels[s_state.active_panel_idx].id;
+
+    // Activate next panel
+    activate_panel(next_panel_id);
+
+    return ESP_OK;
+}
+
+static void input_touch_handler(void* arg, esp_event_base_t base,
+                                int32_t event_id, void* event_data)
+{
+    ESP_LOGI(TAG, "Touch detected - switching to next panel");
+    next_panel();
+}
+
+static void time_tick_handler(void* arg, esp_event_base_t base,
+                              int32_t event_id, void* event_data)
+{
+    if (!s_state.initialized) {
+        return;
+    }
+
+    // Increment inactivity counter
+    s_state.inactivity_counter++;
+
+    // Check if we need to return to default panel
+    if (s_state.inactivity_counter >= s_state.config.inactivity_timeout_s) {
+        panel_id_t current_panel_id = s_state.panels[s_state.active_panel_idx].id;
+
+        if (current_panel_id != s_state.config.default_panel) {
+            ESP_LOGI(TAG, "Inactivity timeout - returning to default panel");
+
+            // Find default panel index
+            for (uint8_t i = 0; i < s_state.panel_count; i++) {
+                if (s_state.panels[i].id == s_state.config.default_panel) {
+                    deactivate_panel(current_panel_id);
+                    s_state.active_panel_idx = i;
+                    activate_panel(s_state.config.default_panel);
+                    break;
+                }
+            }
+        }
+
+        // Reset counter
+        s_state.inactivity_counter = 0;
+    }
 }

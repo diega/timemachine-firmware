@@ -34,6 +34,7 @@ typedef enum {
     NETWORK_CONNECTING,   /**< Network connection in progress */
     NETWORK_CONNECTED,    /**< Network connected successfully */
     NETWORK_FAILED,       /**< Network connection failed */
+    INPUT_TOUCH,          /**< Touch input detected */
     PANEL_ACTIVATED,      /**< Panel was activated */
     PANEL_DEACTIVATED,    /**< Panel was deactivated */
     WEATHER_UPDATE,       /**< Weather data updated (future) */
