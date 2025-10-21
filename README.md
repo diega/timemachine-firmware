@@ -11,8 +11,9 @@ The firmware uses an event-driven architecture with clear separation of concerns
 - **events**: Central event system defining TIMEMACHINE_EVENT and DISPLAY_EVENT event bases
 - **network**: WiFi connectivity with automatic reconnection, emits NETWORK_CONNECTED/NETWORK_FAILED events
 - **ntp_sync**: NTP time synchronization, emits NTP_SYNCED event when time is set
-- **panel_manager**: Panel manager framework for future extensibility
-- **clock**: Time formatting and display logic, listens to TIME_TICK events, emits RENDER_SCENE events
+- **panel_manager**: Coordinates panel navigation and inactivity timeout, listens to INPUT_TOUCH and TIME_TICK
+- **touch_sensor**: TTP223 capacitive touch sensor driver, emits INPUT_TOUCH events
+- **clock**: Time formatting and display logic, listens to TIME_TICK and panel events, emits RENDER_SCENE events
 - **display**: Display abstraction layer with MAX7219 LED matrix driver
 - **tick_task**: Generates periodic TIME_TICK events
 - **wifi_animation**: Visual WiFi connection feedback, displays animated signal bars while connecting
@@ -34,6 +35,9 @@ Display drivers receive RENDER_SCENE events and render according to their capabi
 
 ## Features
 - Event-driven architecture using ESP-IDF event system
+- Panel-based display system with touch navigation (extensible for future panels like weather, date, etc.)
+- TTP223 capacitive touch sensor for panel switching
+- Automatic return to default panel after inactivity timeout (configurable)
 - WiFi connectivity with configurable credentials
 - Animated WiFi connection indicator (growing signal bars)
 - NTP time synchronization with configurable servers
@@ -71,6 +75,9 @@ idf.py menuconfig
 # Configure under "Time Machine Configuration":
 # - WiFi credentials (SSID/Password)
 # - NTP servers and timezone
+# - Touch sensor GPIO pin (default: GPIO 5)
+# - Touch debounce time (default: 200ms)
+# - Panel inactivity timeout (default: 15 seconds)
 # - Time format (12h/24h) and whether to show seconds
 ```
 
@@ -179,6 +186,9 @@ timemachine-firmware/
 │   ├── tick_task/          # Periodic tick event generator
 │   │   ├── include/tick_task.h
 │   │   └── tick_task.c
+│   ├── touch_sensor/       # TTP223 touch sensor driver
+│   │   ├── include/touch_sensor.h
+│   │   └── touch_sensor.c
 │   └── wifi_animation/     # WiFi connection animation
 │       ├── include/wifi_animation.h
 │       ├── wifi_animation.c
