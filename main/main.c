@@ -38,6 +38,7 @@
 #include "panel_manager.h"
 #include "touch_sensor.h"
 #include "clock_panel.h"
+#include "date_panel.h"
 #include "i18n.h"
 #include "wifi_animation.h"
 
@@ -170,6 +171,9 @@ static void on_ntp_synced(void* arg, esp_event_base_t event_base,
         .name = "clock"
     };
     ESP_ERROR_CHECK(panel_manager_register_panel(&clock_panel));
+
+    // Initialize date panel
+    ESP_ERROR_CHECK(date_panel_init());
 
     ESP_LOGI(TAG, "Time Machine ready!");
 }

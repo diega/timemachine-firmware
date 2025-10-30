@@ -19,6 +19,7 @@ static struct {
     uint16_t inactivity_counter;
     TimerHandle_t inactivity_timer;
     esp_event_handler_instance_t input_touch_handler;
+    esp_event_handler_instance_t panel_skip_handler;
 } s_state = {0};
 
 // Forward declarations
@@ -28,6 +29,8 @@ static esp_err_t next_panel(void);
 static void inactivity_timer_callback(TimerHandle_t xTimer);
 static void input_touch_handler(void* arg, esp_event_base_t base,
                                 int32_t event_id, void* event_data);
+static void panel_skip_handler(void* arg, esp_event_base_t base,
+                               int32_t event_id, void* event_data);
 
 // ============================================================================
 // Public API
@@ -86,6 +89,20 @@ esp_err_t panel_manager_init(const panel_manager_config_t *config)
         return err;
     }
 
+    // Register PANEL_SKIP_REQUESTED handler
+    err = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        PANEL_SKIP_REQUESTED,
+        panel_skip_handler,
+        NULL,
+        &s_state.panel_skip_handler
+    );
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register PANEL_SKIP_REQUESTED handler");
+        panel_manager_deinit();
+        return err;
+    }
+
     s_state.initialized = true;
     ESP_LOGI(TAG, "Panel manager initialized (default: %d, timeout: %ds)",
              config->default_panel, config->inactivity_timeout_s);
@@ -107,6 +124,15 @@ void panel_manager_deinit(void)
     }
 
     // Unregister event handlers
+    if (s_state.panel_skip_handler != NULL) {
+        esp_event_handler_instance_unregister(
+            TIMEMACHINE_EVENT,
+            PANEL_SKIP_REQUESTED,
+            s_state.panel_skip_handler
+        );
+        s_state.panel_skip_handler = NULL;
+    }
+
     if (s_state.input_touch_handler != NULL) {
         esp_event_handler_instance_unregister(
             TIMEMACHINE_EVENT,
@@ -227,6 +253,8 @@ static esp_err_t next_panel(void)
         return ESP_ERR_INVALID_STATE;
     }
 
+    ESP_LOGI(TAG, "Cycling panels: current=%d, total=%d", s_state.active_panel_idx, s_state.panel_count);
+
     panel_id_t current_panel_id = s_state.panels[s_state.active_panel_idx].id;
 
     // Deactivate current panel
@@ -235,6 +263,8 @@ static esp_err_t next_panel(void)
     // Calculate next panel index (circular)
     s_state.active_panel_idx = (s_state.active_panel_idx + 1) % s_state.panel_count;
     panel_id_t next_panel_id = s_state.panels[s_state.active_panel_idx].id;
+
+    ESP_LOGI(TAG, "Next panel: index=%d, id=%d", s_state.active_panel_idx, next_panel_id);
 
     // Activate next panel
     activate_panel(next_panel_id);
@@ -246,6 +276,13 @@ static void input_touch_handler(void* arg, esp_event_base_t base,
                                 int32_t event_id, void* event_data)
 {
     ESP_LOGI(TAG, "Touch detected - switching to next panel");
+    next_panel();
+}
+
+static void panel_skip_handler(void* arg, esp_event_base_t base,
+                               int32_t event_id, void* event_data)
+{
+    ESP_LOGI(TAG, "Panel skip requested - switching to next panel");
     next_panel();
 }
 
