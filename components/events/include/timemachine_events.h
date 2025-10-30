@@ -20,6 +20,7 @@ ESP_EVENT_DECLARE_BASE(DISPLAY_EVENT);
  */
 typedef enum {
     PANEL_CLOCK = 0,      /**< Clock panel (default) */
+    PANEL_DATE,           /**< Date panel */
 } panel_id_t;
 
 /**
