@@ -15,6 +15,7 @@ The firmware uses an event-driven architecture with clear separation of concerns
 - **clock**: Time formatting and display logic, listens to TIME_TICK events, emits RENDER_SCENE events
 - **display**: Display abstraction layer with MAX7219 LED matrix driver
 - **tick_task**: Generates periodic TIME_TICK events
+- **wifi_animation**: Visual WiFi connection feedback, displays animated signal bars while connecting
 
 ### Display System
 
@@ -34,6 +35,7 @@ Display drivers receive RENDER_SCENE events and render according to their capabi
 ## Features
 - Event-driven architecture using ESP-IDF event system
 - WiFi connectivity with configurable credentials
+- Animated WiFi connection indicator (growing signal bars)
 - NTP time synchronization with configurable servers
 - Timezone support
 - 12h/24h time format with optional seconds
@@ -117,9 +119,11 @@ idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.wokwi" build
 wokwi-cli --timeout 150000 .
 
 # You should see:
+# I (xxx) wifi_animation: Network connecting - starting animation
 # I (xxx) wifi:connected with Wokwi-GUEST
 # I (xxx) timemachine: Got IP:10.13.37.2
 # I (xxx) timemachine: Connected to network
+# I (xxx) wifi_animation: Network connected - stopping animation
 # I (xxx) ntp_sync: Time synchronized!
 # I (xxx) clock: 12:34:56
 ```
@@ -172,9 +176,13 @@ timemachine-firmware/
 │   ├── panel_manager/      # Panel navigation coordinator
 │   │   ├── include/panel_manager.h
 │   │   └── panel_manager.c
-│   └── tick_task/          # Periodic tick event generator
-│       ├── include/tick_task.h
-│       └── tick_task.c
+│   ├── tick_task/          # Periodic tick event generator
+│   │   ├── include/tick_task.h
+│   │   └── tick_task.c
+│   └── wifi_animation/     # WiFi connection animation
+│       ├── include/wifi_animation.h
+│       ├── wifi_animation.c
+│       └── assets/wifi_bars.h  # Animation frames
 ├── main/
 │   ├── main.c              # Application entry point
 │   ├── CMakeLists.txt

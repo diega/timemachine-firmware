@@ -14,16 +14,7 @@
 
 #pragma once
 
-#include <stdint.h>
-
-
-/**
- * @brief Character descriptor
- */
-typedef struct {
-    uint8_t width;              // Number of columns (0-20)
-    const uint8_t *data;        // Pointer to column data
-} default_font_char_t;
+#include "font.h"
 
 /**
  * @brief Get character descriptor from default font
@@ -31,5 +22,5 @@ typedef struct {
  * @param ch ASCII character code (0-255)
  * @return Pointer to character descriptor
  */
-const default_font_char_t* default_font_get_char(uint8_t ch);
+const font_char_t* default_font_get_char(uint8_t ch);
 

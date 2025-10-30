@@ -1,5 +1,7 @@
 #include "display_max7219.h"
-#include "default_font.h"
+#include "fonts/font.h"
+#include "fonts/default_font.h"
+#include "fonts/md_max72xx_font.h"
 #include "scene.h"
 #include <string.h>
 #include "esp_log.h"
@@ -77,50 +79,72 @@ static void set_column(int col, uint8_t data)
     s_display_buffer[device] |= column_data;
 }
 
-static void render_char_at(int x_offset, char ch)
+static int get_text_width(const char *text, const font_t *font)
 {
-    const default_font_char_t *char_desc = default_font_get_char((uint8_t)ch);
-
-    if (char_desc == NULL || char_desc->width == 0 || char_desc->data == NULL) {
-        return;  // Empty character
+    // Use default font if none specified
+    if (font == NULL) {
+        font = &font_default;
     }
 
-    // Render character columns
-    for (int col = 0; col < char_desc->width; col++) {
-        if (x_offset + col >= 32) {
-            break;  // Off screen
-        }
-        if (x_offset + col >= 0) {
-            set_column(x_offset + col, char_desc->data[col]);
-        }
-    }
-}
-
-static int get_char_width(char ch)
-{
-    const default_font_char_t *char_desc = default_font_get_char((uint8_t)ch);
-    return (char_desc && char_desc->width > 0) ? char_desc->width : 0;
-}
-
-static int get_text_width(const char *text)
-{
     int width = 0;
-    while (*text) {
-        width += get_char_width(*text);
-        width += 1;  // 1 column spacing between characters
-        text++;
+    const char *p = text;
+
+    while (*p) {
+        char ch = *p;
+        char next_ch = *(p + 1);
+
+        // Use get_char_last for the last character to exclude trailing spacing
+        const font_char_t *char_desc;
+        if (next_ch == '\0') {
+            char_desc = font->get_char_last((uint8_t)ch);
+        } else {
+            char_desc = font->get_char((uint8_t)ch);
+        }
+
+        if (char_desc && char_desc->width > 0) {
+            width += char_desc->width;
+        }
+
+        p++;
     }
-    return width > 0 ? width - 1 : 0;  // Remove last spacing
+
+    return width;
 }
 
-static void render_text_at(int x_offset, const char *text)
+static void render_text_at(int x_offset, const char *text, const font_t *font)
 {
     int x = x_offset;
 
+    // Use default font if none specified
+    if (font == NULL) {
+        font = &font_default;
+    }
+
     while (*text) {
-        render_char_at(x, *text);
-        x += get_char_width(*text);
-        x += 1;  // 1 column spacing
+        char ch = *text;
+        char next_ch = *(text + 1);
+
+        // Use get_char_last for the last character, get_char for others
+        const font_char_t *char_desc;
+        if (next_ch == '\0') {
+            char_desc = font->get_char_last((uint8_t)ch);
+        } else {
+            char_desc = font->get_char((uint8_t)ch);
+        }
+
+        // Render the character
+        if (char_desc != NULL && char_desc->width > 0 && char_desc->data != NULL) {
+            for (int col = 0; col < char_desc->width; col++) {
+                if (x + col >= 32) {
+                    break;  // Off screen
+                }
+                if (x + col >= 0) {
+                    set_column(x + col, char_desc->data[col]);
+                }
+            }
+            x += char_desc->width;
+        }
+
         text++;
     }
 }
@@ -146,16 +170,16 @@ static void render_bitmap_at(int x_offset, const uint8_t *bitmap, int width, int
 // Private - Scene Rendering Logic
 // ============================================================================
 
-static void render_text_centered(const char *text)
+static void render_text_centered(const char *text, const font_t *font)
 {
     clear_display_buffer();
 
     // Calculate width and center on display (32 columns)
-    int text_width = get_text_width(text);
+    int text_width = get_text_width(text, font);
     int x_offset = (32 - text_width) / 2;
 
     // Render centered text
-    render_text_at(x_offset, text);
+    render_text_at(x_offset, text, font);
 }
 
 static void render_scene(const display_scene_t *scene)
@@ -171,7 +195,7 @@ static void render_scene(const display_scene_t *scene)
     for (int i = 0; i < scene->element_count; i++) {
         const scene_element_t *elem = &scene->elements[i];
         if (elem->type == SCENE_ELEMENT_TEXT) {
-            total_width += get_text_width(elem->data.text.str);
+            total_width += get_text_width(elem->data.text.str, elem->data.text.font);
         } else if (elem->type == SCENE_ELEMENT_ANIMATION) {
             total_width += elem->data.animation.width;
         }
@@ -190,8 +214,8 @@ static void render_scene(const display_scene_t *scene)
         const scene_element_t *elem = &scene->elements[i];
 
         if (elem->type == SCENE_ELEMENT_TEXT) {
-            render_text_at(x_offset, elem->data.text.str);
-            x_offset += get_text_width(elem->data.text.str);
+            render_text_at(x_offset, elem->data.text.str, elem->data.text.font);
+            x_offset += get_text_width(elem->data.text.str, elem->data.text.font);
         } else if (elem->type == SCENE_ELEMENT_ANIMATION) {
             // Render first frame of animation
             if (elem->data.animation.frames != NULL && elem->data.animation.frame_count > 0) {
@@ -287,8 +311,8 @@ static void max7219_driver_render(const display_scene_t *scene)
         // Render full scene with elements
         render_scene(scene);
     } else if (scene->fallback_text != NULL) {
-        // Fallback to simple text rendering
-        render_text_centered(scene->fallback_text);
+        // Fallback to simple text rendering (use default font)
+        render_text_centered(scene->fallback_text, NULL);
     } else {
         return;
     }

@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Forward declaration - font_t is defined in display driver
+typedef struct font_s font_t;
 
 /**
  * @brief Scene element types
@@ -17,6 +19,7 @@ typedef enum {
  */
 typedef struct {
     const char *str;          /**< Text string to display */
+    const font_t *font;       /**< Font to use (NULL = use default font) */
 } scene_text_t;
 
 /**

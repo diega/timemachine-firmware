@@ -6,9 +6,12 @@ set(DISPLAY_DRIVER_HEADER "display_max7219.h")
 set(DISPLAY_DRIVER_EXTERN "display_max7219_driver")
 list(APPEND srcs
     "max7219/display_max7219.c"
-    "max7219/default_font.c"
+    "max7219/fonts/default_font.c"
+    "max7219/fonts/md_max72xx_font.c"
+    "max7219/fonts/dotmatrix_font.c"
+    "max7219/fonts/dotmatrix_small_font.c"
 )
-list(APPEND includes "max7219")
+list(APPEND includes "max7219" "max7219/fonts")
 
 if(CONFIG_TIMEMACHINE_DISPLAY_EMULATOR)
     # Add mock implementation for testing

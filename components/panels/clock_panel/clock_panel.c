@@ -18,6 +18,7 @@
 
 #include "clock_panel.h"
 #include "timemachine_events.h"
+#include "fonts/font.h"
 #include "i18n.h"
 #include "esp_log.h"
 #include "esp_event.h"
@@ -217,14 +218,16 @@ static void time_tick_event_handler(void* arg, esp_event_base_t base,
     timemachine_time_tick_t *tick_data = (timemachine_time_tick_t *)event_data;
     struct tm *time = &tick_data->timeinfo;
 
-    // Format time string with day of week based on configuration
-    static char time_str[20];  // "DDD HH:MM\0" = max 10 chars
+    // Get day of week (localized)
+    static char dow_str[4];  // "DDD\0" = max 4 chars
+    const char *day = i18n_get_day_name(time->tm_wday);
+    snprintf(dow_str, sizeof(dow_str), "%s", day);
+
+    // Format time string based on configuration
+    static char time_str[16];  // Static to persist after function returns
     int hour = time->tm_hour;
     int min = time->tm_min;
     int sec = time->tm_sec;
-
-    // Get day of week (localized)
-    const char *day = i18n_get_day_name(time->tm_wday);
 
     // Convert to 12h if needed
     if (s_config.format == TIME_FORMAT_12H) {
@@ -237,22 +240,34 @@ static void time_tick_event_handler(void* arg, esp_event_base_t base,
     // Blink colon: show on even seconds, hide on odd seconds
     char separator = (sec % 2) == 0 ? ':' : ' ';
 
-    // Format time as "DDD HH:MM" or "DDD H:MM" (with day of week)
+    // Format time as "HH:MM" or "H:MM" (or with space instead of colon)
     if (hour < 10) {
-        snprintf(time_str, sizeof(time_str), "%s %d%c%02d", day, hour, separator, min);
+        snprintf(time_str, sizeof(time_str), "%d%c%02d", hour, separator, min);
     } else {
-        snprintf(time_str, sizeof(time_str), "%s %02d%c%02d", day, hour, separator, min);
+        snprintf(time_str, sizeof(time_str), "%02d%c%02d", hour, separator, min);
     }
 
-    // Build scene with single text element
-    static scene_element_t time_element;
-    time_element.type = SCENE_ELEMENT_TEXT;
-    time_element.data.text.str = time_str;
+    // Build scene with two text elements: day of week (dotmatrix) + time (default)
+    static scene_element_t time_elements[2];
+
+    // Day of week with small dotmatrix font (for the techito)
+    time_elements[0].type = SCENE_ELEMENT_TEXT;
+    time_elements[0].data.text.str = dow_str;
+    time_elements[0].data.text.font = &font_dotmatrix_small;
+
+    // Time with default font
+    time_elements[1].type = SCENE_ELEMENT_TEXT;
+    time_elements[1].data.text.str = time_str;
+    time_elements[1].data.text.font = &font_default;
 
     static display_scene_t time_scene;
-    time_scene.element_count = 1;
-    time_scene.elements = &time_element;
-    time_scene.fallback_text = time_str;
+    time_scene.element_count = 2;
+    time_scene.elements = time_elements;
+
+    // Fallback text for simple displays
+    static char fallback_str[20];
+    snprintf(fallback_str, sizeof(fallback_str), "%s %s", dow_str, time_str);
+    time_scene.fallback_text = fallback_str;
 
     // Emit RENDER_SCENE
     esp_err_t err = esp_event_post(

@@ -39,6 +39,7 @@
 #include "clock_panel.h"
 #include "tick_task.h"
 #include "i18n.h"
+#include "wifi_animation.h"
 
 static const char *TAG = "timemachine";
 
@@ -111,6 +112,9 @@ void app_main(void)
         .default_panel = PANEL_CLOCK
     };
     ESP_ERROR_CHECK(panel_manager_init(&panel_config));
+
+    // Initialize WiFi animation (must be before network init)
+    ESP_ERROR_CHECK(wifi_animation_init());
 
     // Initialize tick task
     tick_task_config_t tick_config = {

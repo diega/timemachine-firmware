@@ -362,24 +362,41 @@ static const uint16_t DEFAULT_FONT_CHAR_OFFSET[256] = {
  * @return Pointer to character descriptor with width and column data
  *
  * Example:
- *   const default_font_char_t *zero = default_font_get_char('0');
+ *   const font_char_t *zero = default_font_get_char('0');
  *   // zero->width = 3
  *   // zero->data points to [126, 129, 126]
  */
-const default_font_char_t* default_font_get_char(uint8_t ch)
+const font_char_t* default_font_get_char(uint8_t ch)
 {
-    static default_font_char_t char_desc;
+    static font_char_t char_desc;
+    static uint8_t char_data_with_spacing[21];  // Max width 20 + 1 spacing
 
-    char_desc.width = DEFAULT_FONT_CHAR_WIDTH[ch];
+    uint8_t base_width = DEFAULT_FONT_CHAR_WIDTH[ch];
 
-    if (char_desc.width == 0) {
+    if (base_width == 0) {
         // Empty character
+        char_desc.width = 0;
         char_desc.data = NULL;
         return &char_desc;
     }
 
-    // Point to column data
-    char_desc.data = &DEFAULT_FONT_FONT_DATA[DEFAULT_FONT_CHAR_OFFSET[ch]];
+    // Copy character data and add spacing column
+    const uint8_t *base_data = &DEFAULT_FONT_FONT_DATA[DEFAULT_FONT_CHAR_OFFSET[ch]];
+    for (int i = 0; i < base_width; i++) {
+        char_data_with_spacing[i] = base_data[i];
+    }
+    char_data_with_spacing[base_width] = 0x00;  // Add empty spacing column
+
+    // Return character with spacing included
+    char_desc.width = base_width + 1;
+    char_desc.data = char_data_with_spacing;
 
     return &char_desc;
 }
+
+// Font descriptor for the default font
+const font_t font_default = {
+    .name = "default",
+    .get_char = default_font_get_char,
+    .get_char_last = default_font_get_char  // Same as get_char (spacing is invisible anyway)
+};
