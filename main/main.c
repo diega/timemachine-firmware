@@ -32,6 +32,7 @@
 
 #include "timemachine_events.h"
 #include "settings.h"
+#include "ble_config.h"
 #include "network.h"
 #include "ntp_sync.h"
 #include "display.h"
@@ -81,6 +82,9 @@ void app_main(void)
 
     // Initialize i18n with configured language
     ESP_ERROR_CHECK(i18n_init(language));
+
+    // Initialize BLE configuration service
+    ESP_ERROR_CHECK(ble_config_init());
 
     // Register event handlers
     ESP_ERROR_CHECK(esp_event_handler_instance_register(

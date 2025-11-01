@@ -16,7 +16,49 @@ ESP-IDF uses a Kconfig-based configuration system with three main components:
 
 ```
 Kconfig.projbuild (defines options) → sdkconfig.defaults (custom values) → sdkconfig (final result)
+                                                                                ↓
+                                                                    Runtime: NVS (persistent storage)
+                                                                                ↓
+                                                                    BLE Configuration Service (optional)
 ```
+
+The system supports two configuration approaches:
+
+1. **Build-time configuration**: Using Kconfig/sdkconfig files (WiFi, NTP, timezone, etc.)
+2. **Runtime configuration**: Using BLE to update settings stored in NVS
+
+### Runtime Configuration via BLE
+
+The device exposes BLE GATT services that allow updating configuration at runtime:
+
+- **Network Service** (UUID: 0x00FF)
+  - WiFi SSID: Characteristic 0xFF01
+  - WiFi Password: Characteristic 0xFF02
+  - WiFi Auth Mode: Characteristic 0xFF03
+
+- **Clock Service** (UUID: 0x01FF)
+  - Time format (12h/24h): Characteristic 0xFF11
+  - Show seconds toggle: Characteristic 0xFF12
+
+- **NTP Service** (UUID: 0x02FF)
+  - Timezone: Characteristic 0xFF21
+  - NTP Server 1: Characteristic 0xFF22
+  - NTP Server 2: Characteristic 0xFF23
+  - Sync Interval: Characteristic 0xFF24
+
+- **Language Service** (UUID: 0x03FF)
+  - Language: Characteristic 0xFF31
+
+Configuration changes made via BLE are:
+1. Immediately applied to the running system
+2. Stored in NVS (persistent across reboots)
+3. Override build-time Kconfig defaults
+
+**Priority hierarchy** (highest to lowest):
+1. NVS (runtime configuration via BLE)
+2. `sdkconfig.local` (developer overrides)
+3. `sdkconfig.defaults` (committed defaults)
+4. `Kconfig.projbuild` (schema defaults)
 
 ### Important Rules
 
