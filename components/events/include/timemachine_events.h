@@ -41,6 +41,7 @@ typedef enum {
     CLOCK_CONFIG_CHANGED,    /**< Clock configuration changed */
     NTP_CONFIG_CHANGED,      /**< NTP configuration changed */
     LANGUAGE_CHANGED,        /**< Language setting changed */
+    BRIGHTNESS_CHANGED,      /**< Display brightness changed */
 } timemachine_event_id_t;
 
 /**

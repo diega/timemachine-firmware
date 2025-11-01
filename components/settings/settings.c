@@ -28,6 +28,9 @@ static const char *TAG = "settings";
 #define KEY_NTP_SERVER2    "ntp_server2"
 #define KEY_NTP_INTERVAL   "ntp_interval"
 #define KEY_LANGUAGE       "language"
+#define KEY_BRIGHTNESS     "brightness"
+
+#define DEFAULT_BRIGHTNESS 8  // Medium brightness
 
 static bool s_initialized = false;
 static nvs_handle_t s_nvs_handle;
@@ -37,6 +40,7 @@ static esp_event_handler_instance_t s_network_config_handler = NULL;
 static esp_event_handler_instance_t s_clock_config_handler = NULL;
 static esp_event_handler_instance_t s_ntp_config_handler = NULL;
 static esp_event_handler_instance_t s_language_handler = NULL;
+static esp_event_handler_instance_t s_brightness_handler = NULL;
 
 // Forward declarations
 static void on_network_config_changed(void* arg, esp_event_base_t base,
@@ -47,6 +51,8 @@ static void on_ntp_config_changed(void* arg, esp_event_base_t base,
                                   int32_t event_id, void* event_data);
 static void on_language_changed(void* arg, esp_event_base_t base,
                                int32_t event_id, void* event_data);
+static void on_brightness_changed(void* arg, esp_event_base_t base,
+                                  int32_t event_id, void* event_data);
 
 // ============================================================================
 // Public API
@@ -117,6 +123,19 @@ esp_err_t settings_init(void)
     );
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register LANGUAGE_CHANGED handler");
+        settings_deinit();
+        return err;
+    }
+
+    err = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        BRIGHTNESS_CHANGED,
+        on_brightness_changed,
+        NULL,
+        &s_brightness_handler
+    );
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register BRIGHTNESS_CHANGED handler");
         settings_deinit();
         return err;
     }
@@ -243,6 +262,22 @@ language_t settings_get_language(void)
     return (language_t)language;
 }
 
+uint8_t settings_get_brightness(void)
+{
+    uint8_t brightness = 0;
+
+    esp_err_t err = nvs_get_u8(s_nvs_handle, KEY_BRIGHTNESS, &brightness);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded brightness from NVS: %d", brightness);
+    } else {
+        // Use default
+        brightness = DEFAULT_BRIGHTNESS;
+        ESP_LOGI(TAG, "Using default brightness: %d", DEFAULT_BRIGHTNESS);
+    }
+
+    return brightness;
+}
+
 void settings_deinit(void)
 {
     if (!s_initialized) {
@@ -252,6 +287,15 @@ void settings_deinit(void)
     ESP_LOGI(TAG, "Deinitializing settings...");
 
     // Unregister event handlers
+    if (s_brightness_handler != NULL) {
+        esp_event_handler_instance_unregister(
+            TIMEMACHINE_EVENT,
+            BRIGHTNESS_CHANGED,
+            s_brightness_handler
+        );
+        s_brightness_handler = NULL;
+    }
+
     if (s_language_handler != NULL) {
         esp_event_handler_instance_unregister(
             TIMEMACHINE_EVENT,
@@ -356,4 +400,17 @@ static void on_language_changed(void* arg, esp_event_base_t base,
 
     nvs_commit(s_nvs_handle);
     ESP_LOGI(TAG, "Language saved");
+}
+
+static void on_brightness_changed(void* arg, esp_event_base_t base,
+                                  int32_t event_id, void* event_data)
+{
+    uint8_t *brightness = (uint8_t*)event_data;
+
+    ESP_LOGI(TAG, "Saving brightness to NVS: %d", *brightness);
+
+    nvs_set_u8(s_nvs_handle, KEY_BRIGHTNESS, *brightness);
+
+    nvs_commit(s_nvs_handle);
+    ESP_LOGI(TAG, "Brightness saved");
 }

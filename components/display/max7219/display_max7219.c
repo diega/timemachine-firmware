@@ -3,6 +3,9 @@
 #include "fonts/default_font.h"
 #include "fonts/md_max72xx_font.h"
 #include "scene.h"
+#include "timemachine_events.h"
+#include "esp_event.h"
+#include "settings.h"
 #include <string.h>
 #include "esp_log.h"
 #include "max7219.h"
@@ -28,9 +31,14 @@ static const char *TAG = "display_max7219";
 
 static max7219_t s_dev = {0};
 static bool s_initialized = false;
+static esp_event_handler_instance_t s_brightness_handler = NULL;
 
 // Display buffer for 4 cascaded devices (32 columns x 8 rows)
 static uint64_t s_display_buffer[MAX7219_CASCADE] = {0};
+
+// Forward declarations
+static void brightness_changed_handler(void* arg, esp_event_base_t base,
+                                      int32_t event_id, void* event_data);
 
 // ============================================================================
 // Private - Display Buffer Management
@@ -282,10 +290,25 @@ static esp_err_t max7219_driver_init(void)
         return ret;
     }
 
-    // Set brightness to medium
-    ret = max7219_set_brightness(&s_dev, 8);
+    // Set brightness from settings
+    uint8_t brightness = settings_get_brightness();
+    ret = max7219_set_brightness(&s_dev, brightness);
     if (ret != ESP_OK) {
         ESP_LOGW(TAG, "Failed to set brightness: %s", esp_err_to_name(ret));
+    } else {
+        ESP_LOGI(TAG, "Brightness set to %d", brightness);
+    }
+
+    // Register BRIGHTNESS_CHANGED event handler
+    ret = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        BRIGHTNESS_CHANGED,
+        brightness_changed_handler,
+        NULL,
+        &s_brightness_handler
+    );
+    if (ret != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to register BRIGHTNESS_CHANGED handler: %s", esp_err_to_name(ret));
     }
 
     // Clear display
@@ -336,6 +359,16 @@ static void max7219_driver_deinit(void)
         return;
     }
 
+    // Unregister event handler
+    if (s_brightness_handler != NULL) {
+        esp_event_handler_instance_unregister(
+            TIMEMACHINE_EVENT,
+            BRIGHTNESS_CHANGED,
+            s_brightness_handler
+        );
+        s_brightness_handler = NULL;
+    }
+
     // Clear display
     max7219_clear(&s_dev);
 
@@ -344,6 +377,26 @@ static void max7219_driver_deinit(void)
 
     s_initialized = false;
     ESP_LOGI(TAG, "MAX7219 display deinitialized");
+}
+
+// ============================================================================
+// Private - Event Handlers
+// ============================================================================
+
+static void brightness_changed_handler(void* arg, esp_event_base_t base,
+                                      int32_t event_id, void* event_data)
+{
+    if (!s_initialized || event_data == NULL) {
+        return;
+    }
+
+    uint8_t *brightness = (uint8_t*)event_data;
+    ESP_LOGI(TAG, "Brightness changed to %d", *brightness);
+
+    esp_err_t ret = max7219_set_brightness(&s_dev, *brightness);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to set brightness: %s", esp_err_to_name(ret));
+    }
 }
 
 // ============================================================================

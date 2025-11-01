@@ -158,21 +158,18 @@ void wifi_animation_deinit(void)
 static void network_connecting_handler(void* arg, esp_event_base_t base,
                                        int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG, "Network connecting - starting animation");
     start_animation();
 }
 
 static void network_connected_handler(void* arg, esp_event_base_t base,
                                       int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG, "Network connected - stopping animation");
     stop_animation();
 }
 
 static void network_failed_handler(void* arg, esp_event_base_t base,
                                    int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG, "Network failed - stopping animation");
     stop_animation();
 }
 
@@ -192,10 +189,6 @@ static void update_animation(void)
     static display_scene_t scene;
     static char fallback_text[16];
 
-    ESP_LOGI(TAG, "Rendering frame %d/%d (ptr=%p)",
-             s_current_frame, WIFI_ANIMATION_FRAME_COUNT,
-             wifi_animation_frames[s_current_frame]);
-
     // Element 1: "WiFi" text (using md_max72xx font)
     elements[0].type = SCENE_ELEMENT_TEXT;
     elements[0].data.text.str = "WiFi";
@@ -208,17 +201,6 @@ static void update_animation(void)
     elements[1].data.animation.frames = &wifi_animation_frames[s_current_frame];
     elements[1].data.animation.width = 8;
     elements[1].data.animation.height = 8;
-
-    // Debug: Print the first few bytes of current frame
-    ESP_LOGI(TAG, "Frame data: %02x %02x %02x %02x %02x %02x %02x %02x",
-             wifi_animation_frames[s_current_frame][0],
-             wifi_animation_frames[s_current_frame][1],
-             wifi_animation_frames[s_current_frame][2],
-             wifi_animation_frames[s_current_frame][3],
-             wifi_animation_frames[s_current_frame][4],
-             wifi_animation_frames[s_current_frame][5],
-             wifi_animation_frames[s_current_frame][6],
-             wifi_animation_frames[s_current_frame][7]);
 
     // Fallback text for simple displays
     snprintf(fallback_text, sizeof(fallback_text), "WiFi%.*s",
@@ -242,9 +224,7 @@ static void update_animation(void)
     }
 
     // Advance to next frame
-    uint8_t old_frame = s_current_frame;
     s_current_frame = (s_current_frame + 1) % WIFI_ANIMATION_FRAME_COUNT;
-    ESP_LOGI(TAG, "Advanced frame: %d -> %d", old_frame, s_current_frame);
 }
 
 // ============================================================================

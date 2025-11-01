@@ -17,7 +17,8 @@ typedef struct {
  * @brief Initialize touch sensor
  *
  * Configures GPIO and sets up interrupt handler to detect touches.
- * Emits INPUT_TOUCH event when a valid touch is detected (with debounce).
+ * Emits INPUT_PRESS when touched, INPUT_RELEASE when released,
+ * and INPUT_TAP for short taps (press + quick release).
  *
  * @param config Touch sensor configuration
  * @return ESP_OK on success, error code otherwise

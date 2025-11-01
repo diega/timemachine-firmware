@@ -33,6 +33,7 @@
 #include "timemachine_events.h"
 #include "settings.h"
 #include "ble_config.h"
+#include "brightness_control.h"
 #include "network.h"
 #include "ntp_sync.h"
 #include "display.h"
@@ -85,6 +86,14 @@ void app_main(void)
 
     // Initialize BLE configuration service
     ESP_ERROR_CHECK(ble_config_init());
+
+    // Initialize brightness control
+    uint8_t brightness = settings_get_brightness();
+    brightness_control_config_t brightness_config = {
+        .initial_brightness = brightness,
+        .cycle_interval_ms = 300  // 300ms between brightness changes
+    };
+    ESP_ERROR_CHECK(brightness_control_init(&brightness_config));
 
     // Register event handlers
     ESP_ERROR_CHECK(esp_event_handler_instance_register(

@@ -54,6 +54,13 @@ ntp_sync_config_t settings_get_ntp(void);
 language_t settings_get_language(void);
 
 /**
+ * @brief Get current display brightness
+ *
+ * @return Current brightness level (2-15)
+ */
+uint8_t settings_get_brightness(void);
+
+/**
  * @brief Deinitialize settings component
  */
 void settings_deinit(void);
