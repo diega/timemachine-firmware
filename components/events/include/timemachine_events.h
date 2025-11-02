@@ -21,6 +21,7 @@ ESP_EVENT_DECLARE_BASE(DISPLAY_EVENT);
 typedef enum {
     PANEL_CLOCK = 0,      /**< Clock panel (default) */
     PANEL_DATE,           /**< Date panel */
+    PANEL_WEATHER,        /**< Weather panel */
 } panel_id_t;
 
 /**
@@ -42,6 +43,7 @@ typedef enum {
     NTP_CONFIG_CHANGED,      /**< NTP configuration changed */
     LANGUAGE_CHANGED,        /**< Language setting changed */
     BRIGHTNESS_CHANGED,      /**< Display brightness changed */
+    WEATHER_CONFIG_CHANGED,  /**< Weather configuration changed */
 } timemachine_event_id_t;
 
 /**

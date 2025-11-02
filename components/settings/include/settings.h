@@ -14,6 +14,7 @@
 #include "clock_panel.h"
 #include "ntp_sync.h"
 #include "i18n.h"
+#include "weather.h"
 
 /**
  * @brief Initialize settings component
@@ -59,6 +60,13 @@ language_t settings_get_language(void);
  * @return Current brightness level (2-15)
  */
 uint8_t settings_get_brightness(void);
+
+/**
+ * @brief Get current weather configuration
+ *
+ * @return Current weather config (from NVS or defaults)
+ */
+weather_config_t settings_get_weather(void);
 
 /**
  * @brief Deinitialize settings component

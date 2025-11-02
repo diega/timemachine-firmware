@@ -41,6 +41,8 @@
 #include "touch_sensor.h"
 #include "clock_panel.h"
 #include "date_panel.h"
+#include "weather_panel.h"
+#include "weather.h"
 #include "i18n.h"
 #include "wifi_animation.h"
 
@@ -187,6 +189,13 @@ static void on_ntp_synced(void* arg, esp_event_base_t event_base,
 
     // Initialize date panel
     ESP_ERROR_CHECK(date_panel_init());
+
+    // Initialize weather component with settings
+    weather_config_t weather_config = settings_get_weather();
+    ESP_ERROR_CHECK(weather_init(&weather_config));
+
+    // Initialize weather panel
+    ESP_ERROR_CHECK(weather_panel_init());
 
     ESP_LOGI(TAG, "Time Machine ready!");
 }

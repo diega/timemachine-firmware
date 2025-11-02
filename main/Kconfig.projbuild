@@ -103,4 +103,28 @@ menu "Time Machine Configuration"
             Seconds of inactivity before returning to default panel (clock).
             Default is 15 seconds.
 
+    config TIMEMACHINE_WEATHER_API_KEY
+        string "OpenWeather API Key"
+        default ""
+        help
+            API key for OpenWeather API (get one at https://openweathermap.org/api).
+            Leave empty to configure via BLE.
+
+    config TIMEMACHINE_WEATHER_LOCATION
+        string "Weather Location"
+        default ""
+        help
+            City name or coordinates (lat,lon) for weather data.
+            Examples: "London", "Tokyo", "40.7128,-74.0060"
+            Leave empty to configure via BLE.
+
+    config TIMEMACHINE_WEATHER_UPDATE_INTERVAL
+        int "Weather update interval (seconds)"
+        default 1800
+        range 300 86400
+        help
+            How often to fetch weather data from OpenWeather API.
+            Default is 1800 seconds (30 minutes).
+            Minimum is 300 seconds (5 minutes).
+
 endmenu

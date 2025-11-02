@@ -9,6 +9,7 @@
 #include "clock_panel.h"
 #include "ntp_sync.h"
 #include "i18n.h"
+#include "weather.h"
 #include "esp_log.h"
 #include "esp_event.h"
 #include "esp_bt.h"
@@ -39,10 +40,15 @@ static const char *TAG = "ble_config";
 #define GATTS_SERVICE_UUID_LANGUAGE    0x03FF
 #define GATTS_CHAR_UUID_LANGUAGE       0xFF31
 
+#define GATTS_SERVICE_UUID_WEATHER     0x04FF
+#define GATTS_CHAR_UUID_WEATHER_API_KEY    0xFF41
+#define GATTS_CHAR_UUID_WEATHER_LOCATION   0xFF42
+
 #define GATTS_NUM_HANDLE_NETWORK       8
 #define GATTS_NUM_HANDLE_CLOCK         6
 #define GATTS_NUM_HANDLE_NTP           10
 #define GATTS_NUM_HANDLE_LANGUAGE      4
+#define GATTS_NUM_HANDLE_WEATHER       6
 
 #define DEVICE_NAME                    "TimeMachine"
 #define GATTS_TAG                      "GATTS_CONFIG"
@@ -88,6 +94,15 @@ enum {
     HRS_LANGUAGE_IDX_NB,
 };
 
+enum {
+    IDX_SVC_WEATHER,
+    IDX_CHAR_WEATHER_API_KEY,
+    IDX_CHAR_VAL_WEATHER_API_KEY,
+    IDX_CHAR_WEATHER_LOCATION,
+    IDX_CHAR_VAL_WEATHER_LOCATION,
+    HRS_WEATHER_IDX_NB,
+};
+
 static bool s_connected = false;
 static bool s_initialized = false;
 static uint16_t s_gatts_if = ESP_GATT_IF_NONE;
@@ -98,6 +113,7 @@ static uint16_t s_network_handle_table[HRS_NETWORK_IDX_NB];
 static uint16_t s_clock_handle_table[HRS_CLOCK_IDX_NB];
 static uint16_t s_ntp_handle_table[HRS_NTP_IDX_NB];
 static uint16_t s_language_handle_table[HRS_LANGUAGE_IDX_NB];
+static uint16_t s_weather_handle_table[HRS_WEATHER_IDX_NB];
 
 // Configuration buffers
 static char s_wifi_ssid[32] = {0};
@@ -110,6 +126,8 @@ static char s_ntp_server1[64] = {0};
 static char s_ntp_server2[64] = {0};
 static uint32_t s_sync_interval = 0;
 static uint8_t s_language = 0;
+static char s_weather_api_key[64] = {0};
+static char s_weather_location[64] = {0};
 
 // Forward declarations
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -395,6 +413,30 @@ static void handle_write_event(esp_gatt_if_t gatts_if, esp_ble_gatts_cb_param_t 
         ESP_LOGI(TAG, "Language changed event posted");
     }
 
+    // Weather service characteristics
+    else if (handle == s_weather_handle_table[IDX_CHAR_VAL_WEATHER_API_KEY]) {
+        memset(s_weather_api_key, 0, sizeof(s_weather_api_key));
+        memcpy(s_weather_api_key, param->write.value,
+               param->write.len < sizeof(s_weather_api_key) ? param->write.len : sizeof(s_weather_api_key) - 1);
+        ESP_LOGI(TAG, "Weather API key updated");
+
+    } else if (handle == s_weather_handle_table[IDX_CHAR_VAL_WEATHER_LOCATION]) {
+        memset(s_weather_location, 0, sizeof(s_weather_location));
+        memcpy(s_weather_location, param->write.value,
+               param->write.len < sizeof(s_weather_location) ? param->write.len : sizeof(s_weather_location) - 1);
+        ESP_LOGI(TAG, "Weather location updated: %s", s_weather_location);
+
+        // Emit WEATHER_CONFIG_CHANGED event
+        weather_config_t config = {
+            .update_interval = 1800  // 30 minutes default
+        };
+        strncpy(config.api_key, s_weather_api_key, sizeof(config.api_key) - 1);
+        strncpy(config.location, s_weather_location, sizeof(config.location) - 1);
+        esp_event_post(TIMEMACHINE_EVENT, WEATHER_CONFIG_CHANGED,
+                      &config, sizeof(config), portMAX_DELAY);
+        ESP_LOGI(TAG, "Weather config changed event posted");
+    }
+
     // Send response if needed
     if (param->write.need_rsp) {
         esp_ble_gatts_send_response(gatts_if, param->write.conn_id,
@@ -469,6 +511,16 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 
             esp_ble_gatts_add_char(s_language_handle_table[IDX_SVC_LANGUAGE],
                 &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid = {.uuid16 = GATTS_CHAR_UUID_LANGUAGE}},
+                ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE,
+                NULL, NULL);
+
+        } else if (param->create.service_id.id.uuid.uuid.uuid16 == GATTS_SERVICE_UUID_WEATHER) {
+            s_weather_handle_table[IDX_SVC_WEATHER] = param->create.service_handle;
+            esp_ble_gatts_start_service(s_weather_handle_table[IDX_SVC_WEATHER]);
+
+            esp_ble_gatts_add_char(s_weather_handle_table[IDX_SVC_WEATHER],
+                &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid = {.uuid16 = GATTS_CHAR_UUID_WEATHER_API_KEY}},
                 ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
                 ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE,
                 NULL, NULL);
@@ -598,6 +650,33 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
         else if (char_uuid == GATTS_CHAR_UUID_LANGUAGE) {
             s_language_handle_table[IDX_CHAR_LANGUAGE] = param->add_char.attr_handle;
             s_language_handle_table[IDX_CHAR_VAL_LANGUAGE] = param->add_char.attr_handle;
+
+            // Language service complete, create weather service
+            esp_ble_gatts_create_service(gatts_if,
+                &(esp_gatt_srvc_id_t){
+                    .is_primary = true,
+                    .id = {
+                        .uuid = {.len = ESP_UUID_LEN_16, .uuid = {.uuid16 = GATTS_SERVICE_UUID_WEATHER}},
+                        .inst_id = 0,
+                    }
+                },
+                GATTS_NUM_HANDLE_WEATHER);
+        }
+
+        // Weather characteristics
+        else if (char_uuid == GATTS_CHAR_UUID_WEATHER_API_KEY) {
+            s_weather_handle_table[IDX_CHAR_WEATHER_API_KEY] = param->add_char.attr_handle;
+            s_weather_handle_table[IDX_CHAR_VAL_WEATHER_API_KEY] = param->add_char.attr_handle;
+
+            esp_ble_gatts_add_char(s_weather_handle_table[IDX_SVC_WEATHER],
+                &(esp_bt_uuid_t){.len = ESP_UUID_LEN_16, .uuid = {.uuid16 = GATTS_CHAR_UUID_WEATHER_LOCATION}},
+                ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE,
+                ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_WRITE,
+                NULL, NULL);
+
+        } else if (char_uuid == GATTS_CHAR_UUID_WEATHER_LOCATION) {
+            s_weather_handle_table[IDX_CHAR_WEATHER_LOCATION] = param->add_char.attr_handle;
+            s_weather_handle_table[IDX_CHAR_VAL_WEATHER_LOCATION] = param->add_char.attr_handle;
 
             ESP_LOGI(TAG, "All services and characteristics created");
         }

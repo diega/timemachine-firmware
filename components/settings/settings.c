@@ -29,6 +29,9 @@ static const char *TAG = "settings";
 #define KEY_NTP_INTERVAL   "ntp_interval"
 #define KEY_LANGUAGE       "language"
 #define KEY_BRIGHTNESS     "brightness"
+#define KEY_WEATHER_API_KEY  "weather_api"
+#define KEY_WEATHER_LOCATION "weather_loc"
+#define KEY_WEATHER_INTERVAL "weather_int"
 
 #define DEFAULT_BRIGHTNESS 8  // Medium brightness
 
@@ -41,6 +44,7 @@ static esp_event_handler_instance_t s_clock_config_handler = NULL;
 static esp_event_handler_instance_t s_ntp_config_handler = NULL;
 static esp_event_handler_instance_t s_language_handler = NULL;
 static esp_event_handler_instance_t s_brightness_handler = NULL;
+static esp_event_handler_instance_t s_weather_config_handler = NULL;
 
 // Forward declarations
 static void on_network_config_changed(void* arg, esp_event_base_t base,
@@ -53,6 +57,8 @@ static void on_language_changed(void* arg, esp_event_base_t base,
                                int32_t event_id, void* event_data);
 static void on_brightness_changed(void* arg, esp_event_base_t base,
                                   int32_t event_id, void* event_data);
+static void on_weather_config_changed(void* arg, esp_event_base_t base,
+                                      int32_t event_id, void* event_data);
 
 // ============================================================================
 // Public API
@@ -136,6 +142,19 @@ esp_err_t settings_init(void)
     );
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to register BRIGHTNESS_CHANGED handler");
+        settings_deinit();
+        return err;
+    }
+
+    err = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        WEATHER_CONFIG_CHANGED,
+        on_weather_config_changed,
+        NULL,
+        &s_weather_config_handler
+    );
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register WEATHER_CONFIG_CHANGED handler");
         settings_deinit();
         return err;
     }
@@ -278,6 +297,65 @@ uint8_t settings_get_brightness(void)
     return brightness;
 }
 
+weather_config_t settings_get_weather(void)
+{
+    static char api_key[64] = {0};
+    static char location[64] = {0};
+    weather_config_t config;
+
+    size_t required_size;
+    esp_err_t err;
+
+    // Load API key from NVS
+    required_size = sizeof(api_key);
+    err = nvs_get_str(s_nvs_handle, KEY_WEATHER_API_KEY, api_key, &required_size);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded weather API key from NVS");
+    } else {
+        // Use Kconfig default if available
+        #ifdef CONFIG_TIMEMACHINE_WEATHER_API_KEY
+        strlcpy(api_key, CONFIG_TIMEMACHINE_WEATHER_API_KEY, sizeof(api_key));
+        ESP_LOGI(TAG, "Using default weather API key from Kconfig");
+        #else
+        api_key[0] = '\0';  // Empty string
+        ESP_LOGW(TAG, "No weather API key configured");
+        #endif
+    }
+
+    // Load location from NVS
+    required_size = sizeof(location);
+    err = nvs_get_str(s_nvs_handle, KEY_WEATHER_LOCATION, location, &required_size);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded weather location from NVS: %s", location);
+    } else {
+        // Use Kconfig default if available
+        #ifdef CONFIG_TIMEMACHINE_WEATHER_LOCATION
+        strlcpy(location, CONFIG_TIMEMACHINE_WEATHER_LOCATION, sizeof(location));
+        ESP_LOGI(TAG, "Using default weather location from Kconfig: %s", location);
+        #else
+        location[0] = '\0';  // Empty string
+        ESP_LOGW(TAG, "No weather location configured");
+        #endif
+    }
+
+    // Load update interval from NVS
+    uint32_t interval = 0;
+    err = nvs_get_u32(s_nvs_handle, KEY_WEATHER_INTERVAL, &interval);
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Loaded weather interval from NVS: %lus", interval);
+    } else {
+        // Use Kconfig default
+        interval = CONFIG_TIMEMACHINE_WEATHER_UPDATE_INTERVAL;
+        ESP_LOGI(TAG, "Using default weather interval from Kconfig: %lus", interval);
+    }
+
+    strlcpy(config.api_key, api_key, sizeof(config.api_key));
+    strlcpy(config.location, location, sizeof(config.location));
+    config.update_interval = interval;
+
+    return config;
+}
+
 void settings_deinit(void)
 {
     if (!s_initialized) {
@@ -413,4 +491,19 @@ static void on_brightness_changed(void* arg, esp_event_base_t base,
 
     nvs_commit(s_nvs_handle);
     ESP_LOGI(TAG, "Brightness saved");
+}
+
+static void on_weather_config_changed(void* arg, esp_event_base_t base,
+                                      int32_t event_id, void* event_data)
+{
+    weather_config_t *config = (weather_config_t*)event_data;
+
+    ESP_LOGI(TAG, "Saving weather config to NVS...");
+
+    nvs_set_str(s_nvs_handle, KEY_WEATHER_API_KEY, config->api_key);
+    nvs_set_str(s_nvs_handle, KEY_WEATHER_LOCATION, config->location);
+    nvs_set_u32(s_nvs_handle, KEY_WEATHER_INTERVAL, config->update_interval);
+
+    nvs_commit(s_nvs_handle);
+    ESP_LOGI(TAG, "Weather config saved");
 }

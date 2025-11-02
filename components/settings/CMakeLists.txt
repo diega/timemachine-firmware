@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS "settings.c"
     INCLUDE_DIRS "include"
-    REQUIRES nvs_flash network clock_panel ntp_sync i18n
+    REQUIRES nvs_flash network clock_panel ntp_sync i18n weather
     PRIV_REQUIRES events
 )

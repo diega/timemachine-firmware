@@ -49,6 +49,10 @@ The device exposes BLE GATT services that allow updating configuration at runtim
 - **Language Service** (UUID: 0x03FF)
   - Language: Characteristic 0xFF31
 
+- **Weather Service** (UUID: 0x04FF)
+  - API key: Characteristic 0xFF41
+  - Location: Characteristic 0xFF42
+
 Configuration changes made via BLE are:
 1. Immediately applied to the running system
 2. Stored in NVS (persistent across reboots)
