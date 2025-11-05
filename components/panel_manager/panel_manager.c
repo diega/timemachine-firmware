@@ -18,12 +18,16 @@ static struct {
     uint8_t active_panel_idx;
     uint16_t inactivity_counter;
     TimerHandle_t inactivity_timer;
+    esp_event_handler_instance_t input_touch_handler;
 } s_state = {0};
 
 // Forward declarations
 static esp_err_t activate_panel(panel_id_t panel_id);
 static esp_err_t deactivate_panel(panel_id_t panel_id);
 static esp_err_t next_panel(void);
+static void inactivity_timer_callback(TimerHandle_t xTimer);
+static void input_touch_handler(void* arg, esp_event_base_t base,
+                                int32_t event_id, void* event_data);
 
 // ============================================================================
 // Public API
@@ -47,10 +51,44 @@ esp_err_t panel_manager_init(const panel_manager_config_t *config)
     s_state.active_panel_idx = 0;
     s_state.inactivity_counter = 0;
 
+    // Create inactivity timer (1 second period)
+    s_state.inactivity_timer = xTimerCreate(
+        "inactivity",
+        pdMS_TO_TICKS(1000),  // 1 second period
+        pdTRUE,               // Auto-reload
+        NULL,
+        inactivity_timer_callback
+    );
+    if (s_state.inactivity_timer == NULL) {
+        ESP_LOGE(TAG, "Failed to create inactivity timer");
+        return ESP_ERR_NO_MEM;
+    }
+
+    // Start inactivity timer
+    if (xTimerStart(s_state.inactivity_timer, 0) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to start inactivity timer");
+        xTimerDelete(s_state.inactivity_timer, 0);
+        s_state.inactivity_timer = NULL;
+        return ESP_FAIL;
+    }
+
+    // Register INPUT_TAP handler for panel navigation
+    esp_err_t err = esp_event_handler_instance_register(
+        TIMEMACHINE_EVENT,
+        INPUT_TAP,
+        input_touch_handler,
+        NULL,
+        &s_state.input_touch_handler
+    );
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to register INPUT_TAP handler");
+        panel_manager_deinit();
+        return err;
+    }
 
     s_state.initialized = true;
-    ESP_LOGI(TAG, "Panel manager initialized (default: %d)",
-             config->default_panel);
+    ESP_LOGI(TAG, "Panel manager initialized (default: %d, timeout: %ds)",
+             config->default_panel, config->inactivity_timeout_s);
 
     return ESP_OK;
 }
@@ -68,6 +106,15 @@ void panel_manager_deinit(void)
         s_state.inactivity_timer = NULL;
     }
 
+    // Unregister event handlers
+    if (s_state.input_touch_handler != NULL) {
+        esp_event_handler_instance_unregister(
+            TIMEMACHINE_EVENT,
+            INPUT_TAP,
+            s_state.input_touch_handler
+        );
+        s_state.input_touch_handler = NULL;
+    }
     s_state.initialized = false;
     ESP_LOGI(TAG, "Panel manager deinitialized");
 }
@@ -193,4 +240,48 @@ static esp_err_t next_panel(void)
     activate_panel(next_panel_id);
 
     return ESP_OK;
+}
+
+static void input_touch_handler(void* arg, esp_event_base_t base,
+                                int32_t event_id, void* event_data)
+{
+    ESP_LOGI(TAG, "Touch detected - switching to next panel");
+    next_panel();
+}
+
+static void inactivity_timer_callback(TimerHandle_t xTimer)
+{
+    if (!s_state.initialized) {
+        return;
+    }
+
+    // Increment inactivity counter
+    s_state.inactivity_counter++;
+
+    // Check if we need to return to default panel
+    if (s_state.inactivity_counter >= s_state.config.inactivity_timeout_s) {
+        if (s_state.panel_count == 0) {
+            s_state.inactivity_counter = 0;
+            return;
+        }
+
+        panel_id_t current_panel_id = s_state.panels[s_state.active_panel_idx].id;
+
+        if (current_panel_id != s_state.config.default_panel) {
+            ESP_LOGI(TAG, "Inactivity timeout - returning to default panel");
+
+            // Find default panel index
+            for (uint8_t i = 0; i < s_state.panel_count; i++) {
+                if (s_state.panels[i].id == s_state.config.default_panel) {
+                    deactivate_panel(current_panel_id);
+                    s_state.active_panel_idx = i;
+                    activate_panel(s_state.config.default_panel);
+                    break;
+                }
+            }
+        }
+
+        // Reset counter
+        s_state.inactivity_counter = 0;
+    }
 }

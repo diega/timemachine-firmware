@@ -79,4 +79,28 @@ menu "Time Machine Configuration"
             Use mock MAX7219 implementation that outputs visual LED matrix to console.
             Useful for development without hardware.
 
+    config TIMEMACHINE_TOUCH_GPIO
+        int "Touch sensor GPIO pin"
+        default 5
+        range 0 48
+        help
+            GPIO pin number for TTP223 touch sensor.
+            Default is GPIO 5.
+
+    config TIMEMACHINE_TOUCH_DEBOUNCE_MS
+        int "Touch sensor debounce time (ms)"
+        default 200
+        range 50 1000
+        help
+            Debounce time in milliseconds to avoid multiple triggers
+            from a single touch. Default is 200ms.
+
+    config TIMEMACHINE_PANEL_TIMEOUT_S
+        int "Panel inactivity timeout (seconds)"
+        default 15
+        range 5 300
+        help
+            Seconds of inactivity before returning to default panel (clock).
+            Default is 15 seconds.
+
 endmenu

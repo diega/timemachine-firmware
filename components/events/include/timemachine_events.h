@@ -30,8 +30,12 @@ typedef enum {
     NETWORK_CONNECTING,   /**< Network connection in progress */
     NETWORK_CONNECTED,    /**< Network connected successfully */
     NETWORK_FAILED,       /**< Network connection failed */
+    INPUT_TAP,            /**< Touch input detected (short tap < 200ms) */
+    INPUT_LONG_PRESS,     /**< Touch long press detected (≥ 200ms) */
+    INPUT_RELEASE,        /**< Touch released after long press */
     PANEL_ACTIVATED,      /**< Panel was activated */
     PANEL_DEACTIVATED,    /**< Panel was deactivated */
+    PANEL_SKIP_REQUESTED, /**< Panel requests to be skipped (no data available) */
     NETWORK_CONFIG_CHANGED,  /**< Network configuration changed */
     CLOCK_CONFIG_CHANGED,    /**< Clock configuration changed */
     NTP_CONFIG_CHANGED,      /**< NTP configuration changed */

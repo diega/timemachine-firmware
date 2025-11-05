@@ -36,6 +36,7 @@
 #include "ntp_sync.h"
 #include "display.h"
 #include "panel_manager.h"
+#include "touch_sensor.h"
 #include "clock_panel.h"
 #include "i18n.h"
 #include "wifi_animation.h"
@@ -108,12 +109,21 @@ void app_main(void)
 
     // Initialize panel manager
     panel_manager_config_t panel_config = {
-        .default_panel = PANEL_CLOCK
+        .default_panel = PANEL_CLOCK,
+        .inactivity_timeout_s = CONFIG_TIMEMACHINE_PANEL_TIMEOUT_S
     };
     ESP_ERROR_CHECK(panel_manager_init(&panel_config));
 
     // Initialize WiFi animation (must be before network init)
     ESP_ERROR_CHECK(wifi_animation_init());
+
+    // Initialize touch sensor
+    touch_sensor_config_t touch_config = {
+        .gpio = CONFIG_TIMEMACHINE_TOUCH_GPIO,
+        .active_high = true,
+        .debounce_ms = CONFIG_TIMEMACHINE_TOUCH_DEBOUNCE_MS
+    };
+    ESP_ERROR_CHECK(touch_sensor_init(&touch_config));
 
     // Initialize network with settings (async, emits events when ready)
     ESP_ERROR_CHECK(network_init(&network_config));
